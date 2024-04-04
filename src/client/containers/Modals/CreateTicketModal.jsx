@@ -1,16 +1,3 @@
-/*
- *       .                             .o8                     oooo
- *    .o8                             "888                     `888
- *  .o888oo oooo d8b oooo  oooo   .oooo888   .ooooo.   .oooo.o  888  oooo
- *    888   `888""8P `888  `888  d88' `888  d88' `88b d88(  "8  888 .8P'
- *    888    888      888   888  888   888  888ooo888 `"Y88b.   888888.
- *    888 .  888      888   888  888   888  888    .o o.  )88b  888 `88b.
- *    "888" d888b     `V88V"V8P' `Y8bod88P" `Y8bod8P' 8""888P' o888o o888o
- *  ========================================================================
- *  Author:     Chris Brame
- *  Updated:    2/10/19 3:06 AM
- *  Copyright (c) 2014-2019. All rights reserved.
- */
 
 import React from 'react'
 import PropTypes from 'prop-types'
@@ -23,10 +10,11 @@ import Log from '../../logger'
 import { createTicket, fetchTicketTypes, getTagsWithPage } from 'actions/tickets'
 import { fetchGroups } from 'actions/groups'
 import { fetchAccountsCreateTicket } from 'actions/accounts'
-
+import {Form} from '@formio/react';
+import { FormBuilder } from '@formio/react';
+import {Helmet} from "react-helmet";
 import $ from 'jquery'
 import helpers from 'lib/helpers'
-
 import BaseModal from 'containers/Modals/BaseModal'
 import Grid from 'components/Grid'
 import GridItem from 'components/Grid/GridItem'
@@ -102,7 +90,56 @@ class CreateTicketModal extends React.Component {
 
   onFormSubmit (e) {
     e.preventDefault()
-    const $form = $(e.target)
+    const $form = $(e.target);
+    const $inputFields = $form.find('input, select');
+    
+    const inputMap = new Map();
+    
+    $inputFields.each(function() {
+      const $input = $(this);
+      const name = $input.attr('name');
+    
+      if (name === undefined) {
+        return; // Skip undefined names
+      }
+    
+      let value = "";
+    
+      if ($input.is('input')) {
+        value = $input.val();
+      } else if ($input.is('select')) {
+        const selectedOption = $input.find('option:selected');
+        if (selectedOption.length) {
+          value = selectedOption.val();
+        }
+      }
+    
+      // Only add unique name-value pairs
+      if (!inputMap.has(name) && name !== undefined) {
+        inputMap.set(name, value);
+      }
+    });
+    const jsonObjects = [];
+    
+    // Format and print the results
+    inputMap.forEach((value, name) => {
+      const cleanedName = name.replace('data[', '').replace(']', '');
+      const formattedname = cleanedName.replace(/^panel\d+/, '');
+      console.log(`Input Name: ${formattedname}, Input Value: ${value}`);
+      const jsonObject = {
+        name: formattedname,
+        value: value
+      };
+    
+      jsonObjects.push(jsonObject);
+    });
+    console.log(jsonObjects);
+    
+
+    //var form = document.querySelector('form');
+
+    // Collect values from the form fields
+    //var subject = form.querySelector('input[name="panelChangeType"]').value;
 
     const data = {}
     if (this.issueText.length < 1) return
@@ -140,6 +177,9 @@ class CreateTicketModal extends React.Component {
     data.priority = this.selectedPriority
     data.issue = this.issueMde.easymde.value()
     data.socketid = this.props.socket.io.engine.id
+    data.dynamicFieldTicket = jsonObjects;
+
+    //const panelChangeType = e.target.panelChangeType.value;
 
     this.props.createTicket(data)
   }
@@ -290,6 +330,8 @@ class CreateTicketModal extends React.Component {
               })}
             </div>
           </div>
+       
+          <div className='custom-formio'><Form src="http://localhost:3001/form/651986531bd2b6cc549796c1" /></div>
           <div className='uk-margin-medium-bottom'>
             <span>Description</span>
             <div className='error-border-wrap uk-clearfix'>

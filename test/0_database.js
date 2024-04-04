@@ -84,10 +84,10 @@ before(function (done) {
           expect(adminRole).to.exist
           userSchema.create(
             {
-              username: 'trudesk',
+              username: 'ticketdesk',
               password: '$2a$04$350Dkwcq9EpJLFhbeLB0buFcyFkI9q3edQEPpy/zqLjROMD9LPToW',
-              fullname: 'Trudesk',
-              email: 'trudesk@trudesk.io',
+              fullname: 'TicketDesk',
+              email: 'help@sncloudtech.com',
               role: adminRole._id,
               accessToken: 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
             },
@@ -110,7 +110,7 @@ before(function (done) {
               username: 'fake.user',
               password: '$2a$04$350Dkwcq9EpJLFhbeLB0buFcyFkI9q3edQEPpy/zqLjROMD9LPToW',
               fullname: 'Fake user',
-              email: 'fake.user@trudesk.io',
+              email: 'fake.user@sncloudtech.com',
               role: supportRole._id,
               accessToken: '456'
             },
@@ -132,7 +132,7 @@ before(function (done) {
               username: 'deleted.user',
               password: '$2a$04$350Dkwcq9EpJLFhbeLB0buFcyFkI9q3edQEPpy/zqLjROMD9LPToW',
               fullname: 'Deleted User',
-              email: 'deleted.user@trudesk.io',
+              email: 'deleted.user@sncloudtech.com',
               role: userRole._id,
               accessToken: '123',
               deleted: true

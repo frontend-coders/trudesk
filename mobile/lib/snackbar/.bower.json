@@ -1,14 +1,14 @@
 {
-  "name": "snackbar",
-  "description": "Notifications insipired by Google Material Design",
+  "name": "TicketDesk",
+  "description": "help desk ticketing, Asset management, Facilities Management etc",
   "main": [
     "dist/snackbar.min.js",
     "dist/snackbar.min.css"
   ],
   "authors": [
-    "Chris Brame <polonel@gmail.com>"
+    "srinivas.n462@gmail.com"
   ],
-  "license": "MIT",
+  "license": "Enterprise",
   "keywords": [
     "snackbar",
     "matieral-design",

@@ -1,15 +1,3 @@
-/*
- *       .                             .o8                     oooo
- *    .o8                             "888                     `888
- *  .o888oo oooo d8b oooo  oooo   .oooo888   .ooooo.   .oooo.o  888  oooo
- *    888   `888""8P `888  `888  d88' `888  d88' `88b d88(  "8  888 .8P'
- *    888    888      888   888  888   888  888ooo888 `"Y88b.   888888.
- *    888 .  888      888   888  888   888  888    .o o.  )88b  888 `88b.
- *    "888" d888b     `V88V"V8P' `Y8bod88P" `Y8bod8P' 8""888P' o888o o888o
- *  ========================================================================
- *  Updated:    6/9/19 9:44 PM
- *  Copyright (c) 2014-2019 Trudesk, Inc. All rights reserved.
- */
 
 import React from 'react'
 import PropTypes from 'prop-types'
@@ -17,7 +5,6 @@ import { connect } from 'react-redux'
 import { observer } from 'mobx-react'
 import { makeObservable, observable } from 'mobx'
 import { each, without, uniq } from 'lodash'
-
 import Log from '../../logger'
 import axios from 'axios'
 import {
@@ -127,6 +114,14 @@ class TicketsContainer extends React.Component {
   }
 
   onSetStatus (status) {
+
+
+   /*.subscribe(() => {
+      this.setState({
+          username: this.getState.sessionUser.username
+      })
+      console.log(this.state.username); 
+  })*/
     const batch = this.selectedTickets.map(id => {
       return { id, status: status.get('_id') }
     })
@@ -332,6 +327,7 @@ class TicketsContainer extends React.Component {
               <TableHeader key={4} width={110} text={'Created'} />,
               <TableHeader key={5} width={125} text={'Requester'} />,
               <TableHeader key={6} width={175} text={'Customer'} />,
+              <TableHeader key={6} width={175} text={'Workflow Status'} />,
               <TableHeader key={7} text={'Assignee'} />,
               <TableHeader key={8} width={110} text={'Due Date'} />,
               <TableHeader key={9} text={'Updated'} />
@@ -380,9 +376,7 @@ class TicketsContainer extends React.Component {
                 return (
                   <TableRow
                     key={ticket.get('_id')}
-                    className={`ticket-${status == null ? 'unknonwn' : status.get('name')} ${
-                      isOverdue() ? 'overdue' : ''
-                    }`}
+                    className={`ticket-${status == null ? 'unknonwn' : status.get('name')}`}
                     clickable={true}
                     onClick={e => {
                       const td = e.target.closest('td')
@@ -413,9 +407,9 @@ class TicketsContainer extends React.Component {
                     <TableCell className={`ticket-status vam nbb uk-text-center`}>
                       <span
                         className={'uk-display-inline-block'}
-                        style={{ backgroundColor: status == null ? '#000' : status.get('htmlColor') }}
+                        style={{ width: '150px',fontSize:"9px", backgroundColor: status == null ? '#000' : status.get('htmlColor') }}
                       >
-                        {status == null ? 'U' : status.get('name')[0].toUpperCase()}
+                        {status == null ? 'U' : status.get('name').toUpperCase()}
                       </span>
                     </TableCell>
                     <TableCell className={'vam nbb'}>{ticket.get('uid')}</TableCell>
@@ -425,6 +419,9 @@ class TicketsContainer extends React.Component {
                     </TableCell>
                     <TableCell className={'vam nbb'}>{ticket.getIn(['owner', 'fullname'])}</TableCell>
                     <TableCell className={'vam nbb'}>{ticket.getIn(['group', 'name'])}</TableCell>
+                    <TableCell className={'vam nbb'}>
+  {ticket.get('currentStep') === 401 ? 'Rejected' : ticket.get('currentStep') === 100 ? 'Initialized' : ticket.get('currentStep')}
+</TableCell>
                     <TableCell className={'vam nbb'}>{assignee()}</TableCell>
                     <TableCell className={'vam nbb'}>{dueDate}</TableCell>
                     <TableCell className={'vam nbb'}>{updated}</TableCell>

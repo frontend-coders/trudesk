@@ -1,16 +1,3 @@
-/*
- *       .                             .o8                     oooo
- *    .o8                             "888                     `888
- *  .o888oo oooo d8b oooo  oooo   .oooo888   .ooooo.   .oooo.o  888  oooo
- *    888   `888""8P `888  `888  d88' `888  d88' `88b d88(  "8  888 .8P'
- *    888    888      888   888  888   888  888ooo888 `"Y88b.   888888.
- *    888 .  888      888   888  888   888  888    .o o.  )88b  888 `88b.
- *    "888" d888b     `V88V"V8P' `Y8bod88P" `Y8bod8P' 8""888P' o888o o888o
- *  ========================================================================
- *  Author:     Chris Brame
- *  Updated:    1/20/19 4:43 PM
- *  Copyright (c) 2014-2019. All rights reserved.
- */
 
 var async = require('async')
 var _ = require('lodash')
@@ -20,33 +7,35 @@ var permissions = require('../../../permissions')
 var emitter = require('../../../emitter')
 var xss = require('xss')
 var sanitizeHtml = require('sanitize-html')
-
+const MongoClient = require('mongodb').MongoClient; const mongoConnectionUri = {
+  server: 'localhost',
+  port: process.env.TD_MONGODB_PORT || '27017',
+  database: 'formioapp'
+}
+let CONNECTION_URI =
+  'mongodb://' + mongoConnectionUri.server + ':' + mongoConnectionUri.port + '/' + 'formioapp'
 var apiTickets = {}
-
-function buildGraphData (arr, days, callback) {
+function buildGraphData(arr, days, callback) {
   var graphData = []
   var today = moment()
     .hour(23)
     .minute(59)
     .second(59)
   var timespanArray = []
-  for (var i = days; i--; ) {
+  for (var i = days; i--;) {
     timespanArray.push(i)
-  }
-
-  _.each(timespanArray, function (day) {
+  } _.each(timespanArray, function (day) {
     var obj = {}
     var d = today.clone().subtract(day, 'd')
     obj.date = d.format('YYYY-MM-DD')
-
     var $dateCount = _.filter(arr, function (v) {
       return (
         v.date <= d.toDate() &&
         v.date >=
-          d
-            .clone()
-            .subtract(1, 'd')
-            .toDate()
+        d
+          .clone()
+          .subtract(1, 'd')
+          .toDate()
       )
     })
 
@@ -57,12 +46,8 @@ function buildGraphData (arr, days, callback) {
 
   if (_.isFunction(callback)) {
     return callback(graphData)
-  }
-
-  return graphData
-}
-
-function buildAvgResponse (ticketArray, callback) {
+  } return graphData
+} function buildAvgResponse(ticketArray, callback) {
   var cbObj = {}
   var $ticketAvg = []
   _.each(ticketArray, function (ticket) {
@@ -70,7 +55,6 @@ function buildAvgResponse (ticketArray, callback) {
 
     var ticketDate = moment(ticket.date)
     var firstCommentDate = moment(ticket.comments[0].date)
-
     var diff = firstCommentDate.diff(ticketDate, 'seconds')
     $ticketAvg.push(diff)
   })
@@ -84,12 +68,8 @@ function buildAvgResponse (ticketArray, callback) {
 
   if (_.isFunction(callback)) {
     return callback(cbObj)
-  }
-
-  return cbObj
-}
-
-/**
+  } return cbObj
+}/**
  * @api {get} /api/v1/tickets/ Get Tickets
  * @apiName getTickets
  * @apiDescription Gets tickets for the given User
@@ -144,7 +124,6 @@ apiTickets.get = function (req, res) {
   var assignedSelf = req.query.assignedself
   var status = req.query.status
   var user = req.user
-
   var object = {
     user: user,
     limit: limit,
@@ -152,11 +131,9 @@ apiTickets.get = function (req, res) {
     assignedSelf: assignedSelf,
     status: status
   }
-
   var ticketModel = require('../../../models/ticket')
   var groupModel = require('../../../models/group')
   var departmentModel = require('../../../models/department')
-
   async.waterfall(
     [
       function (callback) {
@@ -174,9 +151,7 @@ apiTickets.get = function (req, res) {
         if (permissions.canThis(user.role, 'tickets:public')) {
           groupModel.getAllPublicGroups(function (err, publicGroups) {
             if (err) return callback(err)
-
             grps = grps.concat(publicGroups)
-
             return callback(null, grps)
           })
         } else {
@@ -189,15 +164,11 @@ apiTickets.get = function (req, res) {
             _.each(results, function (ticket) {
               ticket.comments = []
             })
-          }
-
-          if (!permissions.canThis(user.role, 'tickets:notes')) {
+          } if (!permissions.canThis(user.role, 'tickets:notes')) {
             _.each(results, function (ticket) {
               ticket.notes = []
             })
-          }
-
-          // sanitize
+          }          // sanitize
           _.each(results, function (ticket) {
             ticket.subscribers = _.map(ticket.subscribers, function (s) {
               return s._id
@@ -214,17 +185,14 @@ apiTickets.get = function (req, res) {
               obj.owner.role = h.owner.role._id
               return obj
             })
-
             ticket.owner.role = ticket.owner.role._id
           })
-
           return callback(err, results)
         })
       }
     ],
     function (err, results) {
       if (err) return res.send('Error: ' + err.message)
-
       return res.json(results)
     }
   )
@@ -233,19 +201,15 @@ apiTickets.get = function (req, res) {
 apiTickets.getByGroup = function (req, res) {
   var groupId = req.params.id
   if (!groupId) return res.status(400).json({ success: false, error: 'Invalid Group Id' })
-
   var limit = req.query.limit ? Number(req.query.limit) : 50
   var page = req.query.page ? Number(req.query.page) : 0
-
   var obj = {
     limit: limit,
     page: page
   }
-
   var ticketSchema = require('../../../models/ticket')
   ticketSchema.getTicketsWithObject([groupId], obj, function (err, tickets) {
     if (err) return res.status(500).json({ success: false, error: err.message })
-
     return res.json({ success: true, tickets: tickets, count: tickets.length })
   })
 }
@@ -255,25 +219,18 @@ apiTickets.getCountByGroup = function (req, res) {
   if (!groupId) return res.status(400).json({ success: false, error: 'Invalid Group Id' })
   if (_.isUndefined(req.query.type) || _.isUndefined(req.query.value))
     return res.status(400).json({ success: false, error: 'Invalid QueryString' })
-
   var type = req.query.type
   var value = req.query.value
   // var limit = req.query.limit ? Number(req.query.limit) : -1
-  // var page = req.query.page ? Number(req.query.page) : 0
-
-  var ticketSchema = require('../../../models/ticket')
-
-  var obj = {
-    // limit: limit,
-    // page: page
-  }
+  // var page = req.query.page ? Number(req.query.page) : 0  var ticketSchema = require('../../../models/ticket')  var obj = {
+  // limit: limit,
+  // page: page
 
   switch (type.toLowerCase()) {
     case 'status':
       obj.status = [Number(value)]
       ticketSchema.getCountWithObject([groupId], obj, function (err, count) {
         if (err) return res.status(500).json({ success: false, error: err.message })
-
         return res.json({ success: true, count: count })
       })
       break
@@ -283,16 +240,13 @@ apiTickets.getCountByGroup = function (req, res) {
       }
       ticketSchema.getCountWithObject([groupId], obj, function (err, count) {
         if (err) return res.status(500).json({ success: false, error: err.message })
-
         return res.json({ success: true, count: count })
       })
       break
     default:
       return res.status(400).json({ success: false, error: 'Unsupported type query' })
   }
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/search/?search={searchString} Get Tickets by Search String
  * @apiName search
  * @apiDescription Gets tickets via search string
@@ -333,9 +287,7 @@ apiTickets.search = function (req, res) {
         if (permissions.canThis(req.user.role, 'tickets:public')) {
           groupModel.getAllPublicGroups(function (err, publicGroups) {
             if (err) return callback(err)
-
             grps = grps.concat(publicGroups)
-
             return callback(null, grps)
           })
         } else {
@@ -348,9 +300,7 @@ apiTickets.search = function (req, res) {
             _.each(results, function (ticket) {
               ticket.notes = []
             })
-          }
-
-          return callback(err, results)
+          } return callback(err, results)
         })
       }
     ],
@@ -366,9 +316,7 @@ apiTickets.search = function (req, res) {
       })
     }
   )
-}
-
-/**
+}/**
  * @api {post} /api/v1/tickets/create Create Ticket
  * @apiName createTicket
  * @apiDescription Creates a ticket with the given post data.
@@ -404,25 +352,20 @@ apiTickets.search = function (req, res) {
         {
             "error": "Invalid Post Data"
         }
- */
-
-apiTickets.create = function (req, res) {
+ */apiTickets.create = function (req, res) {
   var response = {}
   response.success = true
 
   var postData = req.body
+  console.log(postData);
   if (!_.isObject(postData) || !postData.subject || !postData.issue)
     return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
   var socketId = _.isUndefined(postData.socketId) ? '' : postData.socketId
-
   if (_.isUndefined(postData.tags) || _.isNull(postData.tags)) {
     postData.tags = []
   } else if (!_.isArray(postData.tags)) {
     postData.tags = [postData.tags]
-  }
-
-  async.waterfall(
+  } async.waterfall(
     [
       function (done) {
         var UserSchema = require('../../../models/user')
@@ -436,26 +379,20 @@ apiTickets.create = function (req, res) {
       },
       function (status, user, done) {
         if (user.deleted) return done({ status: 400, error: 'Invalid User' })
-
         var HistoryItem = {
           action: 'ticket:created',
           description: 'Ticket was created.',
           owner: req.user._id
         }
-
         var TicketSchema = require('../../../models/ticket')
         var ticket = new TicketSchema(postData)
-
+        console.log("!!!!!!!!!!!!!!!!!!!!" + postData);
         ticket.status = status._id
-
         if (!_.isUndefined(postData.owner)) {
           ticket.owner = postData.owner
         } else {
           ticket.owner = req.user._id
-        }
-
-        ticket.subject = sanitizeHtml(ticket.subject).trim()
-
+        } ticket.subject = sanitizeHtml(ticket.subject).trim()
         var marked = require('marked')
         var tIssue = ticket.issue
         tIssue = tIssue.replace(/(\r\n|\n\r|\r|\n)/g, '<br>')
@@ -463,23 +400,45 @@ apiTickets.create = function (req, res) {
         ticket.issue = xss(marked.parse(tIssue))
         ticket.history = [HistoryItem]
         ticket.subscribers = [user._id]
+        MongoClient.connect(CONNECTION_URI, { useNewUrlParser: true }, (err, client) => {
+          if (err) throw err;
+          const db1 = client.db('formioapp');
+          const collection1 = db1.collection('submissions');
+          // Query collection1 in database1
+          collection1.find({ 'data.workflowType': "ticketWorkflow" }).toArray((err, data) => {
+            if (err) throw err;
+            console.log('Data from collection1:', data);
+            client.close();
+            // Populate the workflowSteps based on workflowGroups
+            ticket.workflowSteps = data.map((workflowGroup) => ({
+              userType: workflowGroup.data.userType,
+              ticketGroup: workflowGroup.data.ticketGroup._id,
+              workflowOrder: workflowGroup.data.workflowOrder,
+              email: workflowGroup.data.email.map((emailObject) =>
+                emailObject.email
+              )
+            })); if (!ticket.workflowSteps.length > 0) {
+              ticket.currentStep = 0;
+            } else {
+              ticket.currentStep = 100;
+            }
+            console.log("ticket " + ticket);
+            ticket.save(function (err, t) {
+              if (err) return done({ status: 400, error: err })
+              t.populate('group owner priority', function (err, tt) {
+                if (err) return done({ status: 400, error: err })
+                emitter.emit('ticket:created', {
+                  hostname: req.headers.host,
+                  socketId: socketId,
+                  ticket: tt
+                })
+                response.ticket = tt
+                res.json(response)
+              })
+            });
 
-        ticket.save(function (err, t) {
-          if (err) return done({ status: 400, error: err })
-
-          t.populate('group owner priority', function (err, tt) {
-            if (err) return done({ status: 400, error: err })
-
-            emitter.emit('ticket:created', {
-              hostname: req.headers.host,
-              socketId: socketId,
-              ticket: tt
-            })
-
-            response.ticket = tt
-            res.json(response)
-          })
-        })
+          });
+        });
       }
     ],
     function (err) {
@@ -487,15 +446,84 @@ apiTickets.create = function (req, res) {
         response.success = false
         response.error = err.error
         return res.status(err.status).json(response)
-      }
-
-      response.success = true
-
+      } response.success = true
       return res.json(response)
     }
   )
 }
-
+apiTickets.create1 = function (req, res) {
+  var response = {};
+  response.success = true; var postData = req.body;
+  console.log(postData); if (!_.isObject(postData) || !postData.subject || !postData.issue)
+    return res.status(400).json({ success: false, error: 'Invalid Post Data' }); var socketId = _.isUndefined(postData.socketId) ? '' : postData.socketId; if (_.isUndefined(postData.tags) || _.isNull(postData.tags)) {
+      postData.tags = [];
+    } else if (!_.isArray(postData.tags)) {
+      postData.tags = [postData.tags];
+    }  // Retrieve the workflow steps from the workflowGroup collection
+  var WorkflowGroupSchema = require('../../../models/workflowGroup');
+  WorkflowGroupSchema.find({ owner: req.user._id, deleted: null })
+    .sort({ 'data.workflowOrder': 1 }) // Order by workflowOrder
+    .exec(function (err, workflowGroups) {
+      if (err) {
+        response.success = false;
+        response.error = 'Failed to retrieve workflow groups';
+        return res.status(500).json(response);
+      } async.waterfall(
+        [
+          function (done) {
+            var UserSchema = require('../../../models/user');
+            UserSchema.findOne({ _id: req.user._id }, done);
+          },
+          function (user, done) {
+            var TicketStatusSchema = require('../../../models/ticketStatus');
+            TicketStatusSchema.findOne({ order: 0 }, function (err, status) {
+              return done(err, status, user, workflowGroups);
+            });
+          },
+          function (status, user, workflowGroups, done) {
+            if (user.deleted) return done({ status: 400, error: 'Invalid User' }); var HistoryItem = {
+              action: 'ticket:created',
+              description: 'Ticket was created.',
+              owner: req.user._id,
+            }; var TicketSchema = require('../../../models/ticket');
+            var ticket = new TicketSchema(postData); ticket.status = status._id; if (!_.isUndefined(postData.owner)) {
+              ticket.owner = postData.owner;
+            } else {
+              ticket.owner = req.user._id;
+            } ticket.subject = sanitizeHtml(ticket.subject).trim(); var marked = require('marked');
+            var tIssue = ticket.issue;
+            tIssue = tIssue.replace(/(\r\n|\n\r|\r|\n)/g, '<br>');
+            tIssue = sanitizeHtml(tIssue).trim();
+            ticket.issue = xss(marked.parse(tIssue));
+            ticket.history = [HistoryItem];
+            ticket.subscribers = [user._id];            // Populate the workflowSteps based on workflowGroups
+            ticket.workflowSteps = workflowGroups.map((workflowGroup) => ({
+              userType: workflowGroup.data.userType,
+              ticketGroup: workflowGroup.data.ticketGroup,
+              workflowOrder: workflowGroup.data.workflowOrder,
+              email: workflowGroup.data.email,
+            })); ticket.save(function (err, t) {
+              if (err) return done({ status: 400, error: err }); t.populate('group owner priority', function (err, tt) {
+                if (err) return done({ status: 400, error: err }); emitter.emit('ticket:created', {
+                  hostname: req.headers.host,
+                  socketId: socketId,
+                  ticket: tt,
+                }); response.ticket = tt;
+                res.json(response);
+              });
+            });
+          },
+        ],
+        function (err) {
+          if (err) {
+            response.success = false;
+            response.error = err.error;
+            return res.status(err.status).json(response);
+          } response.success = true; return res.json(response);
+        }
+      );
+    });
+};
 /**
  * @api {post} /api/v1/public/tickets/create Create Public Ticket
  * @apiName createPublicTicket
@@ -530,15 +558,12 @@ apiTickets.create = function (req, res) {
  */
 apiTickets.createPublicTicket = function (req, res) {
   var Chance = require('chance')
-
   var chance = new Chance()
   var response = {}
   response.success = true
   var postData = req.body
   if (!_.isObject(postData)) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
   var user, group, ticket, plainTextPass
-
   var settingSchema = require('../../../models/setting')
 
   async.waterfall(
@@ -549,9 +574,7 @@ apiTickets.createPublicTicket = function (req, res) {
           if (!allowPublicTickets) {
             winston.warn('Public ticket creation attempted while disabled!')
             return next('Public ticket creation is disabled!')
-          }
-
-          return next()
+          } return next()
         })
       },
       function (next) {
@@ -560,9 +583,7 @@ apiTickets.createPublicTicket = function (req, res) {
           if (!roleDefault) {
             winston.error('No Default User Role Set. (Settings > Permissions > Default User Role)')
             return next('No Default Role Set')
-          }
-
-          return next(null, roleDefault)
+          } return next(null, roleDefault)
         })
       },
       function (roleDefault, next) {
@@ -571,9 +592,7 @@ apiTickets.createPublicTicket = function (req, res) {
           length: 6,
           pool: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890'
         })
-
         var sanitizedFullname = xss(postData.user.fullname)
-
         user = new UserSchema({
           username: postData.user.email,
           password: plainTextPass,
@@ -599,33 +618,23 @@ apiTickets.createPublicTicket = function (req, res) {
           sendMailTo: [savedUser._id],
           public: true
         })
-
         group.save(function (err, group) {
           if (err) return next(err)
-
           return next(null, group, savedUser)
         })
-      },
-
-      function (group, savedUser, next) {
+      }, function (group, savedUser, next) {
         var settingsSchema = require('../../../models/setting')
         settingsSchema.getSettingByName('ticket:type:default', function (err, defaultType) {
           if (err) return next(err)
-
           if (defaultType.value) {
             return next(null, defaultType.value, group, savedUser)
-          }
-
-          return next('Failed: Invalid Default Ticket Type.')
+          } return next('Failed: Invalid Default Ticket Type.')
         })
-      },
-
-      function (defaultTicketType, group, savedUser, next) {
+      }, function (defaultTicketType, group, savedUser, next) {
         // Create Ticket
         var ticketTypeSchema = require('../../../models/tickettype')
         ticketTypeSchema.getType(defaultTicketType, function (err, ticketType) {
           if (err) return next(err)
-
           var TicketSchema = require('../../../models/ticket')
           var HistoryItem = {
             action: 'ticket:created',
@@ -642,23 +651,19 @@ apiTickets.createPublicTicket = function (req, res) {
             history: [HistoryItem],
             subscribers: [savedUser._id]
           })
-
           var marked = require('marked')
           var tIssue = ticket.issue
           tIssue = tIssue.replace(/(\r\n|\n\r|\r|\n)/g, '<br>')
           tIssue = sanitizeHtml(tIssue).trim()
           ticket.issue = marked.parse(tIssue)
           ticket.issue = xss(ticket.issue)
-
           ticket.save(function (err, t) {
             if (err) return next(err)
-
             emitter.emit('ticket:created', {
               hostname: req.headers.host,
               socketId: '',
               ticket: t
             })
-
             return next(null, { user: savedUser, group: group, ticket: t })
           })
         })
@@ -667,10 +672,8 @@ apiTickets.createPublicTicket = function (req, res) {
     function (err, result) {
       if (err) winston.debug(err)
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       delete result.user.password
       result.user.password = undefined
-
       return res.json({
         success: true,
         userData: { savedUser: result.user, chancepass: plainTextPass },
@@ -678,9 +681,7 @@ apiTickets.createPublicTicket = function (req, res) {
       })
     }
   )
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/:uid Get Single Ticket
  * @apiName singleTicket
  * @apiDescription Gets a ticket with the given UID.
@@ -705,25 +706,17 @@ apiTickets.createPublicTicket = function (req, res) {
 apiTickets.single = function (req, res) {
   var uid = req.params.uid
   if (_.isUndefined(uid)) return res.status(200).json({ success: false, error: 'Invalid Ticket' })
-
   var ticketModel = require('../../../models/ticket')
   ticketModel.getTicketByUid(uid, function (err, ticket) {
     if (err) return res.send(err)
-
     if (_.isUndefined(ticket) || _.isNull(ticket)) {
       return res.status(200).json({ success: false, error: 'Invalid Ticket' })
-    }
-
-    ticket = _.clone(ticket._doc)
+    } ticket = _.clone(ticket._doc)
     if (!permissions.canThis(req.user.role, 'tickets:notes')) {
       delete ticket.notes
-    }
-
-    return res.json({ success: true, ticket: ticket })
+    } return res.json({ success: true, ticket: ticket })
   })
-}
-
-/**
+}/**
  * @api {put} /api/v1/tickets/:id Update Ticket
  * @apiName updateTicket
  * @apiDescription Updates ticket via given OID
@@ -767,21 +760,16 @@ apiTickets.update = function (req, res) {
           function (cb) {
             if (!_.isUndefined(reqTicket.status)) {
               ticket.status = reqTicket.status
-            }
-
-            return cb()
+            } return cb()
           },
           function (cb) {
             if (!_.isUndefined(reqTicket.subject)) {
               ticket.subject = sanitizeHtml(reqTicket.subject).trim()
-            }
-
-            return cb()
+            } return cb()
           },
           function (cb) {
             if (!_.isUndefined(reqTicket.group)) {
               ticket.group = reqTicket.group._id || reqTicket.group
-
               ticket.populate('group', function () {
                 return cb()
               })
@@ -792,7 +780,6 @@ apiTickets.update = function (req, res) {
           function (cb) {
             if (!_.isUndefined(reqTicket.priority)) {
               ticket.priority = reqTicket.priority._id || reqTicket.priority
-
               ticket.populate('priority', function () {
                 return cb()
               })
@@ -803,38 +790,29 @@ apiTickets.update = function (req, res) {
           function (cb) {
             if (!_.isUndefined(reqTicket.closedDate)) {
               ticket.closedDate = reqTicket.closedDate
-            }
-
-            return cb()
+            } return cb()
           },
           function (cb) {
             if (!_.isUndefined(reqTicket.tags) && !_.isNull(reqTicket.tags)) {
               ticket.tags = reqTicket.tags
-            }
-
-            return cb()
+            } return cb()
           },
           function (cb) {
             if (!_.isUndefined(reqTicket.issue) && !_.isNull(reqTicket.issue)) {
               ticket.issue = sanitizeHtml(reqTicket.issue).trim()
-            }
-
-            return cb()
+            } return cb()
           },
           function (cb) {
             if (!_.isUndefined(reqTicket.assignee) && !_.isNull(reqTicket.assignee)) {
               ticket.assignee = reqTicket.assignee
               ticket.populate('assignee', function (err, t) {
                 if (err) return cb(err)
-
                 var HistoryItem = {
                   action: 'ticket:set:assignee',
                   description: t.assignee.fullname + ' was set as assignee',
                   owner: req.user._id
                 }
-
                 ticket.history.push(HistoryItem)
-
                 return cb()
               })
             } else {
@@ -846,13 +824,9 @@ apiTickets.update = function (req, res) {
           ticket.save(function (err, t) {
             if (err) {
               return res.status(400).json({ success: false, error: err.message })
-            }
-
-            if (!permissions.canThis(user.role, 'tickets:notes')) {
+            } if (!permissions.canThis(user.role, 'tickets:notes')) {
               t.notes = []
-            }
-
-            return res.json({
+            } return res.json({
               success: true,
               error: null,
               ticket: t
@@ -864,9 +838,7 @@ apiTickets.update = function (req, res) {
   } else {
     return res.status(403).json({ success: false, error: 'Invalid Access Token' })
   }
-}
-
-/**
+}/**
  * @api {delete} /api/v1/tickets/:id Delete Ticket
  * @apiName deleteTicket
  * @apiDescription Deletes ticket via given OID
@@ -890,20 +862,15 @@ apiTickets.update = function (req, res) {
 apiTickets.delete = function (req, res) {
   var oId = req.params.id
   var user = req.user
-
   if (_.isUndefined(oId) || _.isUndefined(user))
     return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
   var ticketModel = require('../../../models/ticket')
   ticketModel.softDelete(oId, function (err) {
     if (err) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
     emitter.emit('ticket:deleted', oId)
     res.json({ success: true, error: null })
   })
-}
-
-/**
+}/**
  * @api {post} /api/v1/tickets/addcomment Add Comment
  * @apiName addComment
  * @apiDescription Adds comment to the given Ticket Id
@@ -940,27 +907,21 @@ apiTickets.postComment = function (req, res) {
   var comment = commentJson.comment
   var owner = commentJson.ownerId || req.user._id
   var ticketId = commentJson._id
-
   if (_.isUndefined(ticketId)) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
   var ticketModel = require('../../../models/ticket')
   ticketModel.getTicketById(ticketId, function (err, t) {
     if (err) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
     if (_.isUndefined(comment)) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
     var marked = require('marked')
     marked.setOptions({
       breaks: true
     })
-
     comment = sanitizeHtml(comment).trim()
-
     var Comment = {
       owner: owner,
       date: new Date(),
       comment: xss(marked.parse(comment))
     }
-
     t.updated = Date.now()
     t.comments.push(Comment)
     var HistoryItem = {
@@ -969,22 +930,15 @@ apiTickets.postComment = function (req, res) {
       owner: owner
     }
     t.history.push(HistoryItem)
-
     t.save(function (err, tt) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       if (!permissions.canThis(req.user.role, 'tickets:notes')) {
         tt.notes = []
-      }
-
-      emitter.emit('ticket:comment:added', tt, Comment, req.headers.host)
-
+      } emitter.emit('ticket:comment:added', tt, Comment, req.headers.host)
       return res.json({ success: true, error: null, ticket: tt })
     })
   })
-}
-
-/**
+}/**
  * @api {post} /api/v1/tickets/addnote Add Note
  * @apiName addInternalNote
  * @apiDescription Adds a note to the given Ticket Id
@@ -1022,9 +976,7 @@ apiTickets.postInternalNote = function (req, res) {
   var ticketModel = require('../../../models/ticket')
   ticketModel.getTicketById(payload.ticketid, function (err, ticket) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     if (_.isUndefined(payload.note)) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
     var marked = require('marked')
     // var note = payload.note.replace(/(\r\n|\n\r|\r|\n)/g, "<br>");
     var Note = {
@@ -1032,7 +984,6 @@ apiTickets.postInternalNote = function (req, res) {
       date: new Date(),
       note: xss(marked.parse(payload.note))
     }
-
     ticket.updated = Date.now()
     ticket.notes.push(Note)
     var HistoryItem = {
@@ -1041,22 +992,16 @@ apiTickets.postInternalNote = function (req, res) {
       owner: payload.owner || req.user._id
     }
     ticket.history.push(HistoryItem)
-
     ticket.save(function (err, savedTicket) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       ticketModel.populate(savedTicket, 'subscribers notes.owner history.owner', function (err, savedTicket) {
         if (err) return res.json({ success: true, ticket: savedTicket })
-
         emitter.emit('ticket:note:added', savedTicket, Note)
-
         return res.json({ success: true, ticket: savedTicket })
       })
     })
   })
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/types Get Ticket Types
  * @apiName getTicketTypes
  * @apiDescription Gets all available ticket types.
@@ -1074,24 +1019,18 @@ apiTickets.getTypes = function (req, res) {
   var ticketType = require('../../../models/tickettype')
   ticketType.getTypes(function (err, types) {
     if (err) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
     return res.json(types)
   })
 }
-
 apiTickets.getType = function (req, res) {
   var id = req.params.id
   if (!id) return res.status(400).json({ success: false, error: 'Invalid Type ID' })
-
   var ticketType = require('../../../models/tickettype')
   ticketType.getType(id, function (err, type) {
     if (err) return res.status(400).json({ success: false, error: 'Invalid Type ID' })
-
     return res.json({ success: true, type: type })
   })
-}
-
-/**
+}/**
  * @api {post} /api/v1/tickets/types/create Create Ticket Type
  * @apiName createType
  * @apiDescription Creates a new ticket type
@@ -1113,23 +1052,17 @@ apiTickets.createType = function (req, res) {
   var typeName = req.body.name
   var ticketTypeSchema = require('../../../models/tickettype')
   var ticketPrioritiesSchema = require('../../../models/ticketpriority')
-
   if (_.isUndefined(typeName) || typeName.length < 3)
     return res.status(400).json({ success: false, error: 'Invalid Type Name!' })
-
   ticketPrioritiesSchema.find({ default: true }, function (err, priorities) {
     if (err) return res.status(400).json({ success: false, error: err.message })
     priorities = _.sortBy(priorities, 'migrationNum')
-
     ticketTypeSchema.create({ name: typeName, priorities: priorities }, function (err, ticketType) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       return res.json({ success: true, tickettype: ticketType })
     })
   })
-}
-
-/**
+}/**
  * @api {put} /api/v1/tickets/types/:id Update Ticket Type
  * @apiName updateType
  * @apiDescription Updates given ticket type
@@ -1146,89 +1079,75 @@ apiTickets.createType = function (req, res) {
  */
 apiTickets.updateType = function (req, res) {
   var id = req.params.id
-
   var data = req.body
-
   var ticketTypeSchema = require('../../../models/tickettype')
-
   if (_.isUndefined(id) || _.isNull(id) || _.isNull(data) || _.isUndefined(data)) {
     return res.status(400).json({ success: false, error: 'Invalid Put Data' })
-  }
-
-  ticketTypeSchema.getType(id, function (err, type) {
+  } ticketTypeSchema.getType(id, function (err, type) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     type.name = data.name
-
     type.save(function (err, t) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       return res.json({ success: true, type: t })
     })
   })
 }
+apiTickets.updateTicketWFStatus = function (req, res) {
+  var id = req.params.id
 
+  var data = req.body
+  var ticketSchema = require('../../../models/ticket')
+  if (_.isUndefined(id) || _.isNull(id) || _.isNull(data) || _.isUndefined(data)) {
+    return res.status(400).json({ success: false, error: 'Invalid Put Data' })
+  } ticketSchema.getTicket(id, function (err, ticket) {
+    if (err) return res.status(400).json({ success: false, error: err.message })
+    ticket.currentStep = data.nextstep;
+    ticket.save(function (err, t) {
+      if (err) return res.status(400).json({ success: false, error: err.message })
+      return res.json({ success: true, ticket: t })
+    })
+  })
+}
 apiTickets.typeAddPriority = function (req, res) {
   var id = req.params.id
-
   var data = req.body
-
   var ticketTypeSchema = require('../../../models/tickettype')
-
   if (!id || !data || !data.priority) {
     return res.status(400).json({ success: false, error: 'Invalid request data' })
-  }
-
-  ticketTypeSchema.getType(id, function (err, type) {
+  } ticketTypeSchema.getType(id, function (err, type) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     type.addPriority(data.priority, function (err, type) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       type.save(function (err, t) {
         if (err) return res.status(400).json({ success: false, error: err.message })
-
         t.populate('priorities', function (err, tt) {
           if (err) return res.status(400).json({ success: false, error: err.message })
-
           return res.json({ success: true, type: tt })
         })
       })
     })
   })
 }
-
 apiTickets.typeRemovePriority = function (req, res) {
   var id = req.params.id
-
   var data = req.body
-
   var ticketTypeSchema = require('../../../models/tickettype')
-
   if (!id || !data || !data.priority) {
     return res.status(400).json({ success: false, error: 'Invalid request data' })
-  }
-
-  ticketTypeSchema.getType(id, function (err, type) {
+  } ticketTypeSchema.getType(id, function (err, type) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     type.removePriority(data.priority, function (err, type) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       type.save(function (err, t) {
         if (err) return res.status(400).json({ success: false, error: err.message })
-
         t.populate('priorities', function (err, tt) {
           if (err) return res.status(400).json({ success: false, error: err.message })
-
           return res.json({ success: true, type: tt })
         })
       })
     })
   })
-}
-
-/**
+}/**
  * @api {delete} /api/v1/tickets/types/:id Delete Ticket Type
  * @apiName deleteType
  * @apiDescription Deletes given ticket type
@@ -1249,15 +1168,11 @@ apiTickets.typeRemovePriority = function (req, res) {
 apiTickets.deleteType = function (req, res) {
   var newTypeId = req.body.newTypeId
   var delTypeId = req.params.id
-
   if (_.isUndefined(newTypeId) || _.isUndefined(delTypeId)) {
     return res.status(400).json({ success: false, error: 'Invalid POST data.' })
-  }
-
-  var ticketTypeSchema = require('../../../models/tickettype')
+  } var ticketTypeSchema = require('../../../models/tickettype')
   var ticketSchema = require('../../../models/ticket')
   var settingsSchema = require('../../../models/setting')
-
   async.waterfall(
     [
       function (next) {
@@ -1268,9 +1183,7 @@ apiTickets.deleteType = function (req, res) {
               custom: true,
               message: 'Type currently "Default Ticket Type" for mailer check.'
             })
-          }
-
-          return next(null)
+          } return next(null)
         })
       },
       function (next) {
@@ -1279,7 +1192,6 @@ apiTickets.deleteType = function (req, res) {
       function (result, next) {
         ticketTypeSchema.getType(delTypeId, function (err, type) {
           if (err) return next(err)
-
           type.remove(function (err) {
             if (err) return next(err)
             return next(null, result)
@@ -1293,61 +1205,41 @@ apiTickets.deleteType = function (req, res) {
     }
   )
 }
-
 apiTickets.createPriority = function (req, res) {
   var data = req.body
-
   var pName = data.name
-
   var pOverdueIn = data.overdueIn
-
   var pHtmlColor = data.htmlColor
-
   if (!pName) {
     return res.status(400).json({ success: false, error: 'Invalid Request Data.' })
-  }
-
-  var TicketPrioritySchema = require('../../../models/ticketpriority')
-
+  } var TicketPrioritySchema = require('../../../models/ticketpriority')
   var P = new TicketPrioritySchema({
     name: pName,
     overdueIn: pOverdueIn,
     htmlColor: pHtmlColor
   })
-
   P.save(function (err, savedPriority) {
     if (err) {
       return res.status(400).json({ success: false, error: err.message })
-    }
-
-    return res.json({ success: true, priority: savedPriority })
+    } return res.json({ success: true, priority: savedPriority })
   })
 }
-
 apiTickets.getPriorities = function (req, res) {
   var ticketPrioritySchema = require('../../../models/ticketpriority')
   ticketPrioritySchema.find({}, function (err, priorities) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     priorities = _.sortBy(priorities, ['migrationNum', 'name'])
-
     return res.json({ success: true, priorities: priorities })
   })
 }
-
 apiTickets.updatePriority = function (req, res) {
   var id = req.params.id
-
   var data = req.body
-
   if (_.isUndefined(id) || _.isNull(id) || _.isNull(data) || _.isUndefined(data)) {
     return res.status(400).json({ success: false, error: 'Invalid Request Data' })
-  }
-
-  var ticketPrioritySchema = require('../../../models/ticketpriority')
+  } var ticketPrioritySchema = require('../../../models/ticketpriority')
   ticketPrioritySchema.findOne({ _id: id }, function (err, priority) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     if (data.name) {
       priority.name = data.name
     }
@@ -1356,88 +1248,62 @@ apiTickets.updatePriority = function (req, res) {
     }
     if (data.overdueIn) {
       priority.overdueIn = data.overdueIn
-    }
-
-    priority.save(function (err, p) {
+    } priority.save(function (err, p) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       return res.json({ success: true, priority: p })
     })
   })
 }
-
 apiTickets.createStatus = function (req, res) {
   var data = req.body
-
   var pName = data.name
-
   var pHtmlColor = data.htmlColor
-
   if (!pName) {
     return res.status(400).json({ success: false, error: 'Invalid Request Data.' })
-  }
-
-  var TicketStatusSchema = require('../../../models/ticketStatus')
-
+  } var TicketStatusSchema = require('../../../models/ticketStatus')
   var P = new TicketStatusSchema({
     name: pName,
     htmlColor: pHtmlColor
   })
-
   P.save(function (err, savedPriority) {
     if (err) {
       return res.status(400).json({ success: false, error: err.message })
-    }
-
-    return res.json({ success: true, priority: savedPriority })
+    } return res.json({ success: true, priority: savedPriority })
   })
 }
-
 apiTickets.getStatus = function (req, res) {
   var ticketStatusSchema = require('../../../models/ticketStatus')
   ticketStatusSchema.find({}, function (err, status) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     status = _.sortBy(status, 'order')
-
     return res.json({ success: true, status: status })
   })
 }
-
 apiTickets.updateStatus = function (req, res) {
   var id = req.params.id
   var data = req.body
-
   if (_.isUndefined(id) || _.isNull(id) || _.isNull(data) || _.isUndefined(data)) {
     return res.status(400).json({ success: false, error: 'Invalid Request Data' })
-  }
-
-  var ticketStatusSchema = require('../../../models/ticketStatus')
+  } var ticketStatusSchema = require('../../../models/ticketStatus')
   ticketStatusSchema.findOne({ _id: id }, function (err, status) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     if (data.name) status.name = data.name
     if (data.htmlColor) status.htmlColor = data.htmlColor
     status.isResolved = data.isResolved
     status.slatimer = data.slatimer
-
     status.save(function (err, p) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       return res.json({ success: true, status: p })
     })
   })
 }
-
 apiTickets.updateStatusOrder = function (req, res) {
   var data = req.body
   if (!data || !data.order) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
-
   var order = data.order
   var ticketStatusSchema = require('../../../models/ticketStatus')
   ticketStatusSchema.find({}, function (err, statuses) {
     if (err) return res.status(400).json({ success: false, error: err })
-
     async.eachSeries(
       statuses,
       function (item, done) {
@@ -1449,22 +1315,17 @@ apiTickets.updateStatusOrder = function (req, res) {
         if (err) {
           winston.debug(err)
           return res.status(500).json({ success: false, error: err })
-        }
-
-        return res.status(200).json({ success: true })
+        } return res.status(200).json({ success: true })
       }
     )
   })
 }
-
 apiTickets.deleteStatus = function (req, res) {
   var id = req.params.id
   var newStatusId = req.body.newStatusId
   if (!id || !newStatusId) {
     return res.status(400).json({ success: false, error: 'Invalid Request Data' })
-  }
-
-  async.series(
+  } async.series(
     [
       function (next) {
         var ticketSchema = require('../../../models/ticket')
@@ -1475,29 +1336,22 @@ apiTickets.deleteStatus = function (req, res) {
         ticketStatusSchema.findOne({ _id: id }, function (err, status) {
           if (err) return next(err)
           if (status.isLocked) return next(`Unable to delete default status: ${status.name}`)
-
           status.remove(next)
         })
       }
     ],
     function (err) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       return res.json({ success: true })
     }
   )
 }
-
 apiTickets.deletePriority = function (req, res) {
   var id = req.params.id
-
   var newPriority = req.body.newPriority
-
   if (!id || !newPriority) {
     return res.status(400).json({ success: false, error: 'Invalid Request Data' })
-  }
-
-  async.series(
+  } async.series(
     [
       function (next) {
         var ticketSchema = require('../../../models/ticket')
@@ -1507,24 +1361,18 @@ apiTickets.deletePriority = function (req, res) {
         var ticketPrioritySchema = require('../../../models/ticketpriority')
         ticketPrioritySchema.findOne({ _id: id }, function (err, priority) {
           if (err) return next(err)
-
           if (priority.default) {
             return next('Unable to delete default priority: ' + priority.name)
-          }
-
-          priority.remove(next)
+          } priority.remove(next)
         })
       }
     ],
     function (err) {
       if (err) return res.status(400).json({ success: false, error: err.message })
-
       return res.json({ success: true })
     }
   )
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/stats Get Ticket Stats
  * @apiName getTicketStats
  * @apiDescription Gets cached ticket stats
@@ -1542,16 +1390,10 @@ apiTickets.getTicketStats = function (req, res) {
   var timespan = 30
   if (req.params.timespan) {
     timespan = parseInt(req.params.timespan)
-  }
-
-  var cache = global.cache
-
+  } var cache = global.cache
   if (_.isUndefined(cache)) {
     return res.status(400).send('Ticket stats are still loading...')
-  }
-
-  var obj = {}
-
+  } var obj = {}
   switch (timespan) {
     case 30:
       obj.data = cache.get('tickets:overview:e30:graphData')
@@ -1589,32 +1431,25 @@ apiTickets.getTicketStats = function (req, res) {
     //     obj.closedCount = cache.get('tickets:overview:lifetime:closedTickets');
     //     obj.ticketAvg = cache.get('tickets:overview:lifetime:responseTime');
     //     break;
-  }
-
-  obj.mostRequester = cache.get('quickstats:mostRequester')
+  }  obj.mostRequester = cache.get('quickstats:mostRequester')
   obj.mostCommenter = cache.get('quickstats:mostCommenter')
   obj.mostAssignee = cache.get('quickstats:mostAssignee')
   obj.mostActiveTicket = cache.get('quickstats:mostActiveTicket')
-
   obj.lastUpdated = cache.get('tickets:overview:lastUpdated')
   var settingsUtil = require('../../../settings/settingsUtil')
   settingsUtil.getSettings(function (err, context) {
     if (err) {
       return res.send(obj)
-    }
-
-    var tz = context.data.settings.timezone.value
+    } var tz = context.data.settings.timezone.value
     obj.lastUpdated = moment
       .utc(obj.lastUpdated)
       .tz(tz)
       .format('MM-DD-YYYY hh:mm:ssa')
-
     return res.send(obj)
   })
   // return res.send(obj);
 }
-
-function parseTicketStats (role, tickets, callback) {
+function parseTicketStats(role, tickets, callback) {
   if (_.isEmpty(tickets)) return callback({ tickets: tickets, tags: {} })
   var t = []
   var tags = {}
@@ -1622,17 +1457,13 @@ function parseTicketStats (role, tickets, callback) {
     _.each(tickets, function (ticket) {
       ticket.notes = []
     })
-  }
-
-  async.each(
+  } async.each(
     tickets,
     function (ticket, cb) {
       _.each(ticket.tags, function (tag) {
         t.push(tag.name)
       })
-
       t = _.take(t, 10)
-
       return cb()
     },
     function () {
@@ -1641,7 +1472,6 @@ function parseTicketStats (role, tickets, callback) {
           var keys = _.sortBy(_.keys(obj), function (key) {
             return comparator ? comparator(obj[key], key) : key
           })
-
           return _.zipObject(
             keys,
             _.map(keys, function (key) {
@@ -1650,7 +1480,6 @@ function parseTicketStats (role, tickets, callback) {
           )
         }
       })
-
       tags = _.countBy(t, function (k) {
         return k
       })
@@ -1659,13 +1488,10 @@ function parseTicketStats (role, tickets, callback) {
         .sortBy(0)
         .fromPairs()
         .value()
-
       return callback({ tickets: tickets, tags: tags })
     }
   )
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/stats/group/:group Get Ticket Stats For Group
  * @apiName getTicketStatsForGroup
  * @apiDescription Gets live ticket stats for given groupId
@@ -1683,7 +1509,6 @@ apiTickets.getTicketStatsForGroup = function (req, res) {
   var groupId = req.params.group
   if (groupId === 0) return res.status(200).json({ success: false, error: 'Please Select Group.' })
   if (_.isUndefined(groupId)) return res.status(400).json({ success: false, error: 'Invalid Group Id.' })
-
   var ticketModel = require('../../../models/ticket')
   var data = {}
   var tags = {}
@@ -1695,7 +1520,6 @@ apiTickets.getTicketStatsForGroup = function (req, res) {
           if (err) return callback(err)
           parseTicketStats(req.user.role, tickets, function (data) {
             tags = data.tags
-
             return callback(null, tickets)
           })
         })
@@ -1713,21 +1537,14 @@ apiTickets.getTicketStatsForGroup = function (req, res) {
         r.closedTickets = _.filter(tickets, function (v) {
           return v.status === 3
         })
-
         var firstDate = moment(_.first(tickets).date).subtract(30, 'd')
         var diffDays = today.diff(firstDate, 'days')
-
         buildGraphData(tickets, diffDays, function (graphData) {
-          r.graphData = graphData
-
-          // Get average Response
+          r.graphData = graphData          // Get average Response
           buildAvgResponse(tickets, function (obj) {
             if (_.isUndefined(obj)) {
               return callback(null, r)
-            }
-
-            r.avgResponse = obj.avgResponse
-
+            } r.avgResponse = obj.avgResponse
             return callback(null, r)
           })
         })
@@ -1735,20 +1552,16 @@ apiTickets.getTicketStatsForGroup = function (req, res) {
     ],
     function (err, results) {
       if (err) return res.status(400).json({ success: false, error: err })
-
       data.ticketCount = results.ticketCount
       data.recentTickets = results.recentTickets
       data.closedCount = _.size(results.closedTickets)
       data.graphData = results.graphData
       data.avgResponse = results.avgResponse
       data.tags = tags
-
       return res.json({ success: true, data: data })
     }
   )
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/stats/user/:user Get Ticket Stats For User
  * @apiName getTicketStatsForUser
  * @apiDescription Gets live ticket stats for given userId
@@ -1766,7 +1579,6 @@ apiTickets.getTicketStatsForUser = function (req, res) {
   var userId = req.params.user
   if (userId === 0) return res.status(200).json({ success: false, error: 'Please Select User.' })
   if (_.isUndefined(userId)) return res.status(400).json({ success: false, error: 'Invalid User Id.' })
-
   var ticketModel = require('../../../models/ticket')
   var data = {}
   var tags = {}
@@ -1777,7 +1589,6 @@ apiTickets.getTicketStatsForUser = function (req, res) {
           if (err) return callback(err)
           parseTicketStats(req.user.role, tickets, function (data) {
             tags = data.tags
-
             return callback(null, tickets)
           })
         })
@@ -1795,21 +1606,14 @@ apiTickets.getTicketStatsForUser = function (req, res) {
         r.closedTickets = _.filter(tickets, function (v) {
           return v.status === 3
         })
-
         var firstDate = moment(_.first(tickets).date).subtract(30, 'd')
         var diffDays = today.diff(firstDate, 'days')
-
         buildGraphData(tickets, diffDays, function (graphData) {
-          r.graphData = graphData
-
-          // Get average Response
+          r.graphData = graphData          // Get average Response
           buildAvgResponse(tickets, function (obj) {
             if (_.isUndefined(obj)) {
               return callback(null, r)
-            }
-
-            r.avgResponse = obj.avgResponse
-
+            } r.avgResponse = obj.avgResponse
             return callback(null, r)
           })
         })
@@ -1817,20 +1621,16 @@ apiTickets.getTicketStatsForUser = function (req, res) {
     ],
     function (err, results) {
       if (err) return res.status(400).json({ success: false, error: err })
-
       data.ticketCount = results.ticketCount
       data.recentTickets = results.recentTickets
       data.closedCount = _.size(results.closedTickets)
       data.graphData = results.graphData
       data.avgResponse = results.avgResponse
       data.tags = tags
-
       return res.json({ success: true, data: data })
     }
   )
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/count/tags Get Tags Count
  * @apiName getTagCount
  * @apiDescription Gets cached count of all tags
@@ -1848,17 +1648,11 @@ apiTickets.getTagCount = function (req, res) {
   const cache = global.cache
   let timespan = req.params.timespan
   if (_.isUndefined(timespan) || _.isNaN(timespan)) timespan = 0
-
   if (_.isUndefined(cache)) {
     return res.status(400).send('Tag stats are still loading...')
-  }
-
-  const tags = cache.get('tags:' + timespan + ':usage')
-
+  } const tags = cache.get('tags:' + timespan + ':usage')
   res.json({ success: true, tags })
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/count/topgroups/:timespan/:topNum Top Groups Count
  * @apiName getTopTicketGroups
  * @apiDescription Gets the group with the top ticket count and timespan
@@ -1882,15 +1676,11 @@ apiTickets.getTopTicketGroups = function (req, res) {
   var ticketModel = require('../../../models/ticket')
   var top = req.params.top
   var timespan = req.params.timespan
-
   ticketModel.getTopTicketGroups(timespan, top, function (err, items) {
     if (err) return res.status(400).json({ error: 'Invalid Request' })
-
     return res.json({ items: items })
   })
-}
-
-/**
+}/**
  * @api {delete} /api/v1/tickets/:tid/attachments/remove/:aid Remove Attachment
  * @apiName removeAttachment
  * @apiDescription Remove Attachemtn with given Attachment ID from given Ticket ID
@@ -1911,39 +1701,30 @@ apiTickets.removeAttachment = function (req, res) {
   var ticketId = req.params.tid
   var attachmentId = req.params.aid
   if (_.isUndefined(ticketId) || _.isUndefined(attachmentId))
-    return res.status(400).json({ error: 'Invalid Attachment' })
-
-  // Check user perm
+    return res.status(400).json({ error: 'Invalid Attachment' })  // Check user perm
   var user = req.user
   if (_.isUndefined(user)) return res.status(400).json({ error: 'Invalid User Auth.' })
-
   var permissions = require('../../../permissions')
   if (!permissions.canThis(user.role, 'tickets:removeAttachment'))
     return res.status(401).json({ error: 'Invalid Permissions' })
-
   var ticketModel = require('../../../models/ticket')
   ticketModel.getTicketById(ticketId, function (err, ticket) {
     if (err) return res.status(400).send('Invalid Ticket Id')
     ticket.getAttachment(attachmentId, function (a) {
       ticket.removeAttachment(user._id, attachmentId, function (err, ticket) {
         if (err) return res.status(400).json({ error: 'Invalid Request.' })
-
         var fs = require('fs')
         var path = require('path')
         var dir = path.join(__dirname, '../../../../public', a.path)
         if (fs.existsSync(dir)) fs.unlinkSync(dir)
-
         ticket.save(function (err, t) {
           if (err) return res.status(400).json({ error: 'Invalid Request.' })
-
           res.json({ success: true, ticket: t })
         })
       })
     })
   })
-}
-
-/**
+}/**
  * @api {put} /api/v1/tickets/:id/subscribe Subscribe/Unsubscribe
  * @apiName subscribeTicket
  * @apiDescription Subscribe/Unsubscribe user to the given ticket OID
@@ -1969,21 +1750,16 @@ apiTickets.subscribe = function (req, res) {
   var data = req.body
   if (_.isUndefined(data.user) || _.isUndefined(data.subscribe))
     return res.status(400).json({ error: 'Invalid Post Data.' })
-
   if (data.user.toString() !== req.user._id.toString()) return res.status(401).json({ error: 'Unauthorized!' })
-
   var ticketModel = require('../../../models/ticket')
   ticketModel.getTicketById(ticketId, function (err, ticket) {
     if (err) return res.status(400).json({ error: 'Invalid Ticket Id' })
-
     async.series(
       [
         function (callback) {
           require('../../../models/user').find({ _id: data.user }, function (err, user) {
             if (err) return callback(err)
-
             if (!user) return callback(new Error('Unauthorized!'))
-
             return callback()
           })
         },
@@ -2003,21 +1779,15 @@ apiTickets.subscribe = function (req, res) {
         if (err) {
           winston.warn(err)
           return res.status(401).json({ error: 'Unauthorized!' })
-        }
-
-        ticket.save(function (err, ticket) {
+        } ticket.save(function (err, ticket) {
           if (err) return res.status(400).json({ error: err })
-
           emitter.emit('ticket:subscriber:update', ticket)
-
           res.json({ success: true, ticket: ticket })
         })
       }
     )
   })
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/tags Get Ticket Tags
  * @apiName getTags
  * @apiDescription Gets all ticket tags
@@ -2036,16 +1806,12 @@ apiTickets.getTags = function (req, res) {
   var tagSchema = require('../../../models/tag')
   tagSchema.getTags(function (err, tags) {
     if (err) return res.status(400).json({ success: false, error: err })
-
     _.each(tags, function (item) {
       item.__v = undefined
     })
-
     res.json({ success: true, tags: tags })
   })
-}
-
-/**
+}/**
  * @api {get} /api/v1/tickets/overdue Get Overdue Tickets
  * @apiName getOverdue
  * @apiDescription Gets current overdue tickets
@@ -2063,18 +1829,14 @@ apiTickets.getOverdue = function (req, res) {
   var settingSchema = require('../../../models/setting')
   settingSchema.getSettingByName('showOverdueTickets:enable', function (err, setting) {
     if (err) return res.status(400).json({ success: false, error: err.message })
-
     if (setting !== null && setting.value === false) {
       return res.json({
         success: true,
         error: 'Show Overdue currently disabled.'
       })
-    }
-
-    var ticketSchema = require('../../../models/ticket')
+    } var ticketSchema = require('../../../models/ticket')
     var departmentSchema = require('../../../models/department')
     var groupSchema = require('../../../models/group')
-
     async.waterfall(
       [
         function (next) {
@@ -2088,12 +1850,9 @@ apiTickets.getOverdue = function (req, res) {
           var groupIds = groups.map(function (g) {
             return g._id
           })
-
           ticketSchema.getOverdue(groupIds, function (err, tickets) {
             if (err) return next(err)
-
             var sorted = _.sortBy(tickets, 'uid').reverse()
-
             return next(null, sorted)
           })
         }
@@ -2111,20 +1870,16 @@ apiTickets.getDeletedTickets = function (req, res) {
   var ticketSchema = require('../../../models/ticket')
   ticketSchema.getDeleted(function (err, tickets) {
     if (err) return res.status(500).json({ success: false, error: err })
-
     return res.json({ success: true, count: tickets.length, deletedTickets: tickets })
   })
 }
-
 apiTickets.restoreDeleted = function (req, res) {
   var postData = req.body
   if (!postData || !postData._id) return res.status(400).json({ success: false, error: 'Invalid Post Data' })
   var ticketSchema = require('../../../models/ticket')
   ticketSchema.restoreDeleted(postData._id, function (err) {
     if (err) return res.status(500).json({ success: false, error: err })
-
     return res.json({ success: true })
   })
 }
-
 module.exports = apiTickets

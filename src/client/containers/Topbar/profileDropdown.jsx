@@ -116,9 +116,7 @@ class ProfileDropdownPartial extends React.Component {
         </div>
         <div className={'pdrop-footer'}>
           <div className='links'>
-            <a href='https://forum.trudesk.io' target={'_blank'} rel={'noreferrer'}>
-              Community
-            </a>
+          
             <span>&middot;</span>
             <a
               href='#'

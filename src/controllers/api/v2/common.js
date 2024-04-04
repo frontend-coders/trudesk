@@ -1,22 +1,18 @@
-/*
- *       .                             .o8                     oooo
- *    .o8                             "888                     `888
- *  .o888oo oooo d8b oooo  oooo   .oooo888   .ooooo.   .oooo.o  888  oooo
- *    888   `888""8P `888  `888  d88' `888  d88' `88b d88(  "8  888 .8P'
- *    888    888      888   888  888   888  888ooo888 `"Y88b.   888888.
- *    888 .  888      888   888  888   888  888    .o o.  )88b  888 `88b.
- *    "888" d888b     `V88V"V8P' `Y8bod88P" `Y8bod8P' 8""888P' o888o o888o
- *  ========================================================================
- *  Author:     Chris Brame
- *  Updated:    2/14/19 12:30 AM
- *  Copyright (c) 2014-2019. All rights reserved.
- */
-
 const User = require('../../../models/user')
 const apiUtils = require('../apiUtils')
-
+const middleware = require('../../../middleware')
 const commonV2 = {}
-
+const secretKey = '--- change me now ---';
+const { ObjectId } = require('mongodb');
+const MongoClient = require('mongodb').MongoClient;
+const jwt = require('jsonwebtoken');
+const winston = require('winston');
+// Configure Winston with a console transport
+winston.createLogger({
+  transports: [
+    new winston.transports.Console()
+  ]
+});
 commonV2.login = async (req, res) => {
   const username = req.body.username
   const password = req.body.password
@@ -28,13 +24,58 @@ commonV2.login = async (req, res) => {
     if (!user) return apiUtils.sendApiError(res, 401, 'Invalid Username/Password')
 
     if (!User.validate(password, user.password)) return apiUtils.sendApiError(res, 401, 'Invalid Username/Password')
-
-    const tokens = await apiUtils.generateJWTToken(user)
-
-    return apiUtils.sendApiSuccess(res, { token: tokens.token, refreshToken: tokens.refreshToken })
+    const token = await generateToken(user);
+    console.log(token);
+    res.setHeader('X-Jwt-Token', token);
+    return apiUtils.sendApiSuccess(res, { token: token, })
   } catch (e) {
     return apiUtils.sendApiError(res, 500, e.message)
   }
+}
+
+function generateToken(user) {
+  // Use your own secret key for signing the token
+
+  const otherDatabaseUri = 'mongodb://localhost:27017/formioapp';
+  const collectionName = 'submissions';  // Replace with your actual collection name
+
+  return MongoClient.connect(otherDatabaseUri, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then((client) => {
+      const collection = client.db().collection(collectionName);
+      const userEmail = user.email;
+
+      return collection.findOne({ 'data.email': userEmail, form: ObjectId('64d76782756dab14a2f41767') })
+        .then((document) => {
+          if (!document) {
+            // Handle the case where no document is found
+            throw new Error('Document not found');
+          }
+          // Do something with the found document
+          console.log('Found document:', document);
+
+          // Specify the payload you want in the token
+          const payload = {
+            user: { _id: document._id, email: user.email },
+            form: { "_id": "64d76782756dab14a2f41767" }
+            // Add any other claims as needed
+          };
+          console.log('Found payload:', payload);
+
+          // Set the options for the token, e.g., expiration time
+          const options = {
+            expiresIn: '1h', // Token expiration time
+          };
+          // Generate the token
+          const token = jwt.sign(payload, secretKey, options);
+          return token;
+        })
+        .finally(() => client.close()); // Close the MongoDB connection
+    })
+    .catch((err) => {
+      // Handle error
+      winston.error('Error generating token:', err);
+      throw err; // Propagate the error
+    });
 }
 
 commonV2.token = async (req, res) => {

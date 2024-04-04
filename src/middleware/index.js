@@ -1,16 +1,4 @@
-/*
- *       .                             .o8                     oooo
- *    .o8                             "888                     `888
- *  .o888oo oooo d8b oooo  oooo   .oooo888   .ooooo.   .oooo.o  888  oooo
- *    888   `888""8P `888  `888  d88' `888  d88' `88b d88(  "8  888 .8P'
- *    888    888      888   888  888   888  888ooo888 `"Y88b.   888888.
- *    888 .  888      888   888  888   888  888    .o o.  )88b  888 `88b.
- *    "888" d888b     `V88V"V8P' `Y8bod88P" `Y8bod8P' 8""888P' o888o o888o
- *  ========================================================================
- *  Author:     Chris Brame
- *  Updated:    1/20/19 4:43 PM
- *  Copyright (c) 2014-2019. All rights reserved.
- */
+
 
 const path = require('path')
 const async = require('async')
@@ -30,15 +18,16 @@ const cookieParser = require('cookie-parser')
 const session = require('express-session')
 const MongoStore = require('connect-mongo')
 const passportConfig = require('../passport')()
-
+const cors = require('cors');
 let middleware = {}
+let authJwt = {}
 
 module.exports = function (app, db, callback) {
   middleware = require('./middleware')(app)
+  authJwt = require('./authJwt')(app)
   app.disable('x-powered-by')
 
   app.set('views', path.join(__dirname, '../views/'))
-
   app.engine(
     'hbs',
     hbs.express4({
@@ -107,7 +96,15 @@ module.exports = function (app, db, callback) {
         app.use(flash())
 
         // CORS
-        app.use(allowCrossDomain)
+        //app.use(allowCrossDomain)
+        const corsOptions = {
+          origin: 'http://localhost:3000', // Replace with your client's origin
+          methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+          credentials: true,
+          optionsSuccessStatus: 204,
+        };
+        
+        app.use(cors(corsOptions));
         const csrf = require('../dependencies/csrf-td')
         csrf.init()
         app.use(csrf.generateToken)
@@ -176,7 +173,8 @@ module.exports = function (app, db, callback) {
 }
 
 function allowCrossDomain (req, res, next) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000')
+  res.setHeader('Access-Control-Allow-Credentials',true)
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
   res.setHeader(
     'Access-Control-Allow-Headers',
@@ -189,4 +187,5 @@ function allowCrossDomain (req, res, next) {
   } else {
     next()
   }
+
 }

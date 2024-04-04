@@ -1,28 +1,17 @@
-/*
- *       .                             .o8                     oooo
- *    .o8                             "888                     `888
- *  .o888oo oooo d8b oooo  oooo   .oooo888   .ooooo.   .oooo.o  888  oooo
- *    888   `888""8P `888  `888  d88' `888  d88' `88b d88(  "8  888 .8P'
- *    888    888      888   888  888   888  888ooo888 `"Y88b.   888888.
- *    888 .  888      888   888  888   888  888    .o o.  )88b  888 `88b.
- *    "888" d888b     `V88V"V8P' `Y8bod88P" `Y8bod8P' 8""888P' o888o o888o
- *  ========================================================================
- *  Author:     Chris Brame
- *  Updated:    1/20/19 4:43 PM
- *  Copyright (c) 2014-2019. All rights reserved.
- */
-
 'use strict'
 
 var _ = require('lodash')
 var db = require('../database')
 var mongoose = require('mongoose')
+const { ObjectId } = require('mongodb');
+const MongoClient = require('mongodb').MongoClient;
 var winston = require('../logger')
 const csrf = require('../dependencies/csrf-td')
 const viewdata = require('../helpers/viewdata')
-
+const jwt = require('jsonwebtoken');
+var passport = require('passport')
 var middleware = {}
-
+const secretKey = '--- change me now ---';
 middleware.db = function (req, res, next) {
   if (mongoose.connection.readyState !== 1) {
     winston.warn('MongoDB ReadyState = ' + mongoose.connection.readyState)
@@ -43,7 +32,6 @@ middleware.redirectToDashboardIfLoggedIn = function (req, res, next) {
     if (req.user.hasL2Auth) {
       return middleware.ensurel2Auth(req, res, next)
     }
-
     if (!req.user.role.isAdmin || !req.user.role.isAgent) {
       return res.redirect('/tickets')
     }
@@ -193,25 +181,131 @@ middleware.api = function (req, res, next) {
 }
 
 middleware.hasAuth = middleware.api
+middleware.apiv2 = async function (req, res, next) {
+  var userSchema = require('../models/user')
+  console.log(req.user);
+  //let token = req.headers;
+  let token = req.headers["x-jwt-token"];
+  //console.log(token);
+  if (req.user && !token) {
+    console.log("inside user");
+    //console.log(req.user);
+    const token = await generateToken(req.user);
+    console.log(token);
+    res.setHeader('X-Jwt-Token', token);
+    return next();
+  }
+  if (token) {
+    console.log(secretKey);
+    jwt.verify(token,
+      secretKey,
+      (err, decoded) => {
+        if (err) {
+          console.log(err);
+          return res.status(401).send({
+            message: "Unauthorized!",
+          });
+        }
+        //console.log(decoded.user.email);
+        //req.userId = decoded.id;
+        //let mid= new ObjectId(decoded.user._id);
+        //console.log(mid);
+        let useremail = decoded.user.email;
+        userSchema.find({ email: useremail }, (err, userdata) => {
+          if (err) {
+            return res.status(500).send({ message: err });
+          }
 
-middleware.apiv2 = function (req, res, next) {
-  // ByPass auth for now if user is set through session
-  if (req.user) return next()
+          if (!userdata) {
+            return res.status(401).send({ message: 'Unauthorised' });
+          }
+          req.user = userdata[0]
+          console.log("userdata");
+          console.log(decoded);
+          next();
+        });
+        //next();
+      });
+  }
 
-  var passport = require('passport')
-  passport.authenticate('jwt', { session: true }, function (err, user) {
-    if (err || !user) return res.status(401).json({ success: false, error: 'Invalid Authentication Token' })
-    if (user) {
-      req.user = user
-      return next()
-    }
+  else {
+    passport.authenticate('jwt', { session: true }, function (err, user) {
+      if (err || !user) return res.status(401).json({ success: false, error: 'Invalid Authentication Token' });
+      if (user) {
+        req.user = user;
+        const token = generateToken(user);
+        res.setHeader('X-Jwt-Token', token);
+        return next();
+      }
 
-    return res.status(500).json({ success: false, error: 'Unknown Error Occurred' })
-  })(req, res, next)
+      return res.status(500).json({ success: false, error: 'Unknown Error Occurred' })
+    })(req, res, next)
+  }
 }
+
+function generateToken(user) {
+  // Use your own secret key for signing the token
+
+  const otherDatabaseUri = 'mongodb://localhost:27017/formioapp';
+  const collectionName = 'submissions';  // Replace with your actual collection name
+
+  return MongoClient.connect(otherDatabaseUri, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then((client) => {
+      const collection = client.db().collection(collectionName);
+      const userEmail = user.email;
+
+      return collection.findOne({ 'data.email': userEmail, form: ObjectId('64d76782756dab14a2f41767') })
+        .then((document) => {
+          if (!document) {
+            // Handle the case where no document is found
+            //throw new Error('Document not found');
+            const payload = {
+              user: { email: user.email },
+              form: { "_id": "64d76782756dab14a2f41767" }
+              // Add any other claims as needed
+            };
+            const options = {
+              expiresIn: '1h', // Token expiration time
+            };
+            console.log('generate token' + secretKey);
+            // Generate the token
+            const token = jwt.sign(payload, secretKey, options);
+            return token;
+          }
+          // Do something with the found document
+          console.log('Found document:', document);
+
+          // Specify the payload you want in the token
+          const payload = {
+            user: { _id: document._id, email: user.email },
+            form: { "_id": "64d76782756dab14a2f41767" }
+            // Add any other claims as needed
+          };
+
+          // Set the options for the token, e.g., expiration time
+          const options = {
+            expiresIn: '1h', // Token expiration time
+          };
+          console.log('generate token' + secretKey);
+          // Generate the token
+          const token = jwt.sign(payload, secretKey, options);
+
+          return token;
+        })
+        .finally(() => client.close()); // Close the MongoDB connection
+    })
+    .catch((err) => {
+      // Handle error
+      winston.error('Error generating token:', err);
+      throw err; // Propagate the error
+    });
+}
+
 
 middleware.canUser = function (action) {
   return function (req, res, next) {
+
+
     if (!req.user) return res.status(401).json({ success: false, error: 'Not Authorized for this API call.' })
     const permissions = require('../permissions')
     const perm = permissions.canThis(req.user.role, action)

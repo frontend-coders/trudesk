@@ -12,10 +12,4 @@
 
 **Anything else we need to know?**:
 
-**Environment**:
-- Trudesk Version:
-- OS (e.g. from /etc/os-release):
-- Node.JS Version:
-- MongoDB Version:
-- Is this hosted on cloud.trudesk.io:
 

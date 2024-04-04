@@ -42,6 +42,7 @@ class IssuePartial extends React.Component {
   @observable owner = null
   @observable subject = ''
   @observable issue = ''
+  @observable dynamicFieldTicket = []
   @observable attachments = []
 
   constructor (props) {
@@ -53,6 +54,7 @@ class IssuePartial extends React.Component {
     this.owner = this.props.owner
     this.subject = this.props.subject
     this.issue = this.props.issue
+    this.dynamicFieldTicket = this.props.dynamicFieldTicket
     this.attachments = this.props.attachments
 
     this.onUpdateTicketAttachments = this.onUpdateTicketAttachments.bind(this)
@@ -71,6 +73,7 @@ class IssuePartial extends React.Component {
     if (prevProps.owner !== this.props.owner) this.owner = this.props.owner
     if (prevProps.subject !== this.props.subject) this.subject = this.props.subject
     if (prevProps.issue !== this.props.issue) this.issue = this.props.issue
+    if (prevProps.dynamicFieldTicket !== this.props.dynamicFieldTicket) this.dynamicFieldTicket = this.props.dynamicFieldTicket
     if (prevProps.attachments !== this.props.attachments) this.attachments = this.props.attachments
   }
 
@@ -160,6 +163,37 @@ class IssuePartial extends React.Component {
           <div className='issue-body' ref={r => (this.issueBody = r)}>
             {ReactHtmlParser(this.issue)}
           </div>
+
+          {this.dynamicFieldTicket.map((field, index) => {
+  // Filter out "subject" and "priority"
+  if (field.name === "subject" || field.name === "priority") {
+    return null;
+  }
+
+  // Remove "panel" from the name
+  const displayName = field.name.replace("panel", "");
+  const isDate = new Date(field.value).toString() !== "Invalid Date";
+
+  // Check if the field.value is empty
+  const isEmptyValue = field.value === "";
+  if ((field.name === "select" || field.name === "search_terms") && isEmptyValue) {
+    return null;
+  }
+  // Format the date to a local date and time format, or use the original value
+  const formattedValue = isEmptyValue
+    ? ""
+    : isDate
+    ? new Date(field.value).toLocaleString() // Adjust the format as needed
+    : field.value;
+  
+  return (
+    <div className="field-container" key={index}>
+      <span>{displayName}:</span>
+      <span style={{ marginLeft: '10px' }}>{formattedValue}</span>
+    </div>
+  );
+})}
+  
         </div>
         {/* Permissions on Fragment for edit */}
         {this.status.get('isResolved') === false &&

@@ -7,7 +7,7 @@ describe('sessions', function () {
   var agent = superagent.agent()
   var unauthAgent = superagent.agent()
   var user = {
-    'login-username': 'trudesk',
+    'login-username': 'srinivas',
     'login-password': '$2a$04$350Dkwcq9EpJLFhbeLB0buFcyFkI9q3edQEPpy/zqLjROMD9LPToW'
   }
 
@@ -75,7 +75,7 @@ describe('sessions', function () {
     })
   })
 
-  it('should return Trudesk Version', function (done) {
+  it('should return Ticket Desk Version', function (done) {
     agent.get('http://localhost:3111/api/v1/version').end(function (err, res) {
       expect(err).to.not.exist
       expect(res.status).to.equal(200)
